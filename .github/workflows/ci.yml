@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "arena/**"]
+    paths:
+      - "agent/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "agent/**"
+      - ".github/workflows/ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  agent-core-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Run NOVA agent core tests
+        run: python -m pytest agent/tests -v

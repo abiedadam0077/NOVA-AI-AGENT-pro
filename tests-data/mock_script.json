@@ -1,0 +1,44 @@
+[
+  {
+    "role": "assistant",
+    "content": "I'll create the file first.",
+    "tool_calls": [
+      {
+        "id": "call_demo1",
+        "type": "function",
+        "function": {
+          "name": "write_file",
+          "arguments": "{\"path\": \"hello.py\", \"content\": \"print('hello from NOVA')\\n\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "call_demo2",
+        "type": "function",
+        "function": {
+          "name": "run_command",
+          "arguments": "{\"command\": \"python3 hello.py\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "call_demo3",
+        "type": "function",
+        "function": {
+          "name": "finish",
+          "arguments": "{\"summary\": \"Created hello.py and verified with python3: it prints 'hello from NOVA'.\"}"
+        }
+      }
+    ]
+  }
+]

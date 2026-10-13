@@ -1,0 +1,27 @@
+# NOVA agent run outputs (published as workflow artifacts instead)
+result.json
+diff.patch
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Flutter/Dart (future mobile app)
+.dart_tool/
+build/
+*.apk
+
+# Node (future web tooling)
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local downloads from connectors (not part of the project)
+google_drive/

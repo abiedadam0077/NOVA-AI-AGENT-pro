@@ -1,0 +1,111 @@
+name: NOVA Agent
+
+# Runs the NOVA AI agent (OpenRouter) against this repository:
+# command in → the agent edits files, runs real tests/builds, fixes errors →
+# changes are published on a branch + PR, results as artifacts and step summary.
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Task / command for the NOVA AI agent"
+        required: true
+        type: string
+      model:
+        description: "OpenRouter model id (empty = repository default)"
+        required: false
+        type: string
+        default: ""
+      max_iterations:
+        description: "Max agent iterations"
+        required: false
+        type: string
+        default: "25"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: nova-agent
+  cancel-in-progress: false
+
+env:
+  NOVA_DEFAULT_MODEL: openai/gpt-4o-mini
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Require OPENROUTER_API_KEY
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::error title=Missing secret::OPENROUTER_API_KEY is not set. Add it in Settings → Secrets and variables → Actions, then re-run."
+            exit 1
+          fi
+
+      - name: Run NOVA agent
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          NOVA_COMMAND: ${{ inputs.command }}
+          NOVA_MODEL: ${{ inputs.model }}
+          NOVA_MAX_ITERATIONS: ${{ inputs.max_iterations }}
+        run: |
+          MODEL="${NOVA_MODEL:-$NOVA_DEFAULT_MODEL}"
+          python agent/run_agent.py \
+            --command "$NOVA_COMMAND" \
+            --workspace . \
+            --model "$MODEL" \
+            --max-iterations "$NOVA_MAX_ITERATIONS" \
+            --result-json result.json \
+            --diff-patch diff.patch
+
+      - name: Publish changes (branch + PR)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGENT_COMMAND: ${{ inputs.command }}
+        run: |
+          git config user.name "NOVA Agent"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No file changes produced by the agent."
+            exit 0
+          fi
+          BRANCH="nova-agent/run-${GITHUB_RUN_ID}"
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "NOVA Agent: ${AGENT_COMMAND}" \
+                     -m "Automated run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          git push -u origin "$BRANCH"
+          gh pr create --base "${GITHUB_REF_NAME}" --head "$BRANCH" \
+            --title "NOVA Agent: ${AGENT_COMMAND}" \
+            --body "Automated changes by the NOVA agent.
+
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          Review the diff below, then merge or close. The full tool log is in the run summary and in the \`nova-agent-run-${GITHUB_RUN_ID}\` artifact (result.json + diff.patch)."
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-agent-run-${{ github.run_id }}
+          path: |
+            result.json
+            diff.patch
+          if-no-files-found: warn
+          retention-days: 30
